@@ -74,7 +74,7 @@ predicate chosen(A: set<int>, b: int, v: int, ios: set<Msg>, ps: set<int>)
     (forall p :: p in A ==> P2B(b, v, p) in ios)
 }
 
-method {:timeLimit 60} SdPaxos(ps: set<int>, N: int)
+method {:timeLimit 0} SdPaxos(ps: set<int>, N: int)
     requires N > 0 && |ps| == N
     requires forall p :: p in ps ==> 0 <= p < N
     decreases *
@@ -100,15 +100,15 @@ method {:timeLimit 60} SdPaxos(ps: set<int>, N: int)
         invariant domain(p1bs) == ps
 
         invariant forall p :: p in ps ==> bal[p] >= cbal[p]
-        invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
+        invariant forall p :: p in ps && st[p] in {E, L} ==> (bal[p] > -1 && bal[p] % N == p)
 
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
-        invariant forall p, m :: p in ps && m in p1bs[p] ==> m.s in ps
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m in ios
+        invariant forall p, m :: p in ps && m in p1bs[p] ==> m.s in ps
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
 
         invariant forall p, b, v :: P2B(b, v, p) in ios ==> P2A(b, v) in ios
-        invariant forall p :: p in ps && av[p] != -1 ==> P2A(cbal[p], av[p]) in ios
+        invariant forall p :: p in ps ==> (av[p] != -1 <==> P2A(cbal[p], av[p]) in ios)
         invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && v != -1 ==> P2A(c, v) in ios
 
         invariant forall b, v :: P2A(b, v) in ios ==> b % N in ps
@@ -134,7 +134,7 @@ method {:timeLimit 60} SdPaxos(ps: set<int>, N: int)
 
         if bcast || ios == {} {
             var val :| val > 0;
-            var b := *; assume b > bal[p] && b % N == p;
+            var b := *; assume b > 0 && b > bal[p] && b % N == p;
 
             st   := st  [p := E];
             bal  := bal [p := b];
@@ -155,44 +155,59 @@ method {:timeLimit 60} SdPaxos(ps: set<int>, N: int)
             if (msg.P1B? && bal[p] == msg.b && st[p] == E && msg.s in ps) {
                 p1bs   := p1bs[p := p1bs[p] + {  msg  }];
                 var A' := set m | m in p1bs[p] :: m.s;
-                assert A' <= ps && p1bs[p] <= ios;
 
                 if (2 * |A'| > N) {
-                    var v' :| v' != -1;
-                    st     := st[p := L];
+                    st := st[p := L];
 
                     if (exists m :: m in p1bs[p] && m.v != -1) {
                         var m' := xj0(p1bs[p]);
-                        v'     := m'.v;
-                        //ios    := ios + { P2A(bal[p], v') };
+                        ios    := ios + { P2A(bal[p], m'.v) };
 
                         /* Begin proof */
-                        //forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
-                        //ensures v' == v
-                        //{
-                            /*
+                        forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
+                        ensures m'.v == v;
+                        {
+                            assert A' <= ps && p1bs[p] <= ios;
                             QuorumsIntersect(A, A', N);
                             var m :| m in p1bs[p] && m.s in A * A';
-                            assert m.s in A && m.s in A';
+
                             assert bal[m.s] >= bal[p] > b;
                             assert P2B(b, v, m.s) in ios || bal[m.s] <= b;
                             assert P2B(b, v, m.s) in ios;
                             assert m.c >= b && m.v != -1;
-                            */
-                            //assume v' == v;
-                        //}
+
+                            assert m'.c >= b && m'.v != -1;
+                            if (m'.c > b) {
+                                assert P(A, b, v, bal', ios', ps);
+                                assert P2A(m'.c, m'.v) in ios';
+                            } else {
+                                assert P2A(m'.c, m'.v) in ios';
+                                assert P2A(b, m'.v) in ios';
+                                assert P2A(b, v) in ios';
+                            }
+                        }
                         /* End proof */
                     } else {
-                        //ios := ios + { P2A(bal[p], v') };
+                        var v'' :| v'' != -1;
+                        ios     := ios + { P2A(bal[p], v'') };
 
-                        /* Begin proof */
-                        /*forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
+                        forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
                         ensures false
+                        /* Begin proof */
                         {
+                            assert A' <= ps && p1bs[p] <= ios;
                             assert forall m :: m in p1bs[p] ==> m.v == -1;
+
                             QuorumsIntersect(A, A', N);
                             var m :| m in p1bs[p] && m.s in A * A';
-                        }*/
+
+                            assert bal[m.s] >= bal[p] > b;
+                            assert P2B(b, v, m.s) in ios || bal[m.s] <= b;
+                            assert P2B(b, v, m.s) in ios;
+                            assert m.c >= b && m.v != -1;
+
+                            assert exists m :: m in p1bs[p] && m.v != 1;
+                        }
                         /* End proof */
                     }
                 }
