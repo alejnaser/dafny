@@ -191,9 +191,9 @@ method {:timeLimit 0} SdPaxos(ps: set<int>, N: int)
                         var v'' :| v'' != -1;
                         ios     := ios + { P2A(bal[p], v'') };
 
+                        /* Begin proof */
                         forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
                         ensures false
-                        /* Begin proof */
                         {
                             assert A' <= ps && p1bs[p] <= ios;
                             assert forall m :: m in p1bs[p] ==> m.v == -1;
