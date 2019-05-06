@@ -4,11 +4,6 @@ datatype Msg = P1A(b: int) |
                P2A(b: int, v: int) |
                P2B(b: int, v: int, s: int)
 
-function domain<U,V>(m: map<U, V>): set<U>
-{
-    set u | u in m :: u
-}
-
 lemma InRange(A: set<int>, N: int)
     requires forall i :: i in A ==> 0 <= i < N
     requires N  >= 0
@@ -62,7 +57,7 @@ method xj0(xs: set<Msg>) returns (m: Msg)
 }
 
 predicate P(A: set<int>, b: int, v: int, bal: map<int, int>, ios: set<Msg>, ps: set<int>)
-    requires domain(bal) == ps
+    requires bal.Keys == ps
 {
     2 * |A| > |ps| && A <= ps &&
     (forall p :: p in A ==> P2B(b, v, p) in ios || bal[p] <= b)
@@ -93,11 +88,11 @@ method {:timeLimit 0} SdPaxos(ps: set<int>, N: int)
     while true
         decreases *
 
-        invariant domain(st)   == ps
-        invariant domain(av)   == ps
-        invariant domain(bal)  == ps
-        invariant domain(cbal) == ps
-        invariant domain(p1bs) == ps
+        invariant st.Keys   == ps
+        invariant av.Keys   == ps
+        invariant bal.Keys  == ps
+        invariant cbal.Keys == ps
+        invariant p1bs.Keys == ps
 
         invariant forall p :: p in ps ==> bal[p] >= cbal[p]
         invariant forall p :: p in ps && st[p] in {E, L} ==> (bal[p] > -1 && bal[p] % N == p)
