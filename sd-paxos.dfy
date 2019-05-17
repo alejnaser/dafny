@@ -57,18 +57,18 @@ method pick_with_max_cbal(xs: set<Msg>) returns (m: Msg)
 }
 
 method new_bal(b: int, p: int, N: int) returns (b': int)
-	requires b >= -1 && N > 0
-	ensures b' > -1 && b' > b && b' % N == p
-	decreases *
+    requires b >= -1 && N > 0
+    ensures b' > -1 && b' > b && b' % N == p
+    decreases *
 {
-	b' := b + 1;
-	while (b' % N != p)
-		decreases *
-		invariant b' > -1
-		invariant b' > b
-	{
-		b' := b' + 1;
-	}
+    b' := b + 1;
+    while (b' % N != p)
+        decreases *
+        invariant b' > -1
+        invariant b' > b
+    {
+        b' := b' + 1;
+    }
 }
 
 predicate P(A: set<int>, b: int, v: int, bal: map<int, int>, ios: set<Msg>, ps: set<int>)
@@ -105,29 +105,29 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
 
         invariant st.Keys == av.Keys == bal.Keys == cbal.Keys == p1bs.Keys == bal'.Keys == ps
 
-		invariant forall p :: p in ps ==> bal[p] >= cbal[p] >= -1
-		invariant forall p, b, c, v :: p in ps && P1B(b, c, v, p) in ios ==> b <= bal[p]
-		invariant forall p, b, v :: p in ps && P2B(b, v, p) in ios ==> b <= cbal[p]
-		invariant forall p, b, v, b', c', v' :: P2B(b, v, p) in ios && P1B(b', c', v', p) in ios && b' > b ==> c' >= b
+        invariant forall p :: p in ps ==> bal[p] >= cbal[p] >= -1
+        invariant forall p, b, c, v :: p in ps && P1B(b, c, v, p) in ios ==> b <= bal[p]
+        invariant forall p, b, v :: p in ps && P2B(b, v, p) in ios ==> b <= cbal[p]
+        invariant forall p, b, v, b', c', v' :: P2B(b, v, p) in ios && P1B(b', c', v', p) in ios && b' > b ==> c' >= b
 
-		invariant forall p, b, v :: P2B(b, v, p) in ios ==> P2A(b, v) in ios
-		invariant forall p :: p in ps ==> cbal[p] != -1 ==> P2A(cbal[p], av[p]) in ios
-		invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
+        invariant forall p, b, v :: P2B(b, v, p) in ios ==> P2A(b, v) in ios
+        invariant forall p :: p in ps ==> cbal[p] != -1 ==> P2A(cbal[p], av[p]) in ios
+        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
 
-		invariant forall b, v :: P2A(b, v) in ios && b != -1 ==> v != -1
-		invariant forall p :: p in ps && cbal[p] != -1 ==> av[p] != -1
-		invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> v != -1
+        invariant forall b, v :: P2A(b, v) in ios && b != -1 ==> v != -1
+        invariant forall p :: p in ps && cbal[p] != -1 ==> av[p] != -1
+        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> v != -1
 
-		invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
+        invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
         invariant forall b, v :: P2A(b, v) in ios ==> b % N in ps
         invariant forall b, v :: P2A(b, v) in ios ==> b <= bal[b % N]
         invariant forall b, v :: P2A(b, v) in ios && st[b % N] == E ==> b < bal[b % N]
-		invariant forall b, v, v' :: P2A(b, v) in ios && P2A(b, v') in ios ==> v' == v
+        invariant forall b, v, v' :: P2A(b, v) in ios && P2A(b, v') in ios ==> v' == v
 
-		invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
+        invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m in ios
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m.s in ps
-		invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
+        invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> bal[m.s] >= bal[p]
 
         invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> P(A, b, v, bal, ios, ps)
@@ -177,7 +177,7 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
                         {
                             quorums_intersect(A, A', N);
                             var m :| m in p1bs[p] && m.s in A * A';
-							assert P(A, b, v, bal', ios', ps);
+                            assert P(A, b, v, bal', ios', ps);
                         }
                         /* End proof */
                     } else {
