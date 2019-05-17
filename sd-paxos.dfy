@@ -71,7 +71,7 @@ method new_bal(b: int, p: int, N: int) returns (b': int)
     }
 }
 
-predicate P(A: set<int>, b: int, v: int, bal: map<int, int>, ios: set<Msg>, ps: set<int>)
+predicate choosable(A: set<int>, b: int, v: int, bal: map<int, int>, ios: set<Msg>, ps: set<int>)
     requires bal.Keys == ps
 {
     2 * |A| > |ps| && A <= ps &&
@@ -130,9 +130,9 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> bal[m.s] >= bal[p]
 
-        invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> P(A, b, v, bal, ios, ps)
-        invariant forall A, b, v :: P(A, b, v, bal, ios, ps) ==> P(A, b, v, bal', ios', ps)
-        invariant forall A, b, v, b', v' :: P(A, b, v, bal, ios, ps) && P2A(b', v') in ios && b' > b > -1 ==> v' == v
+        invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> choosable(A, b, v, bal, ios, ps)
+        invariant forall A, b, v :: choosable(A, b, v, bal, ios, ps) ==> choosable(A, b, v, bal', ios', ps)
+        invariant forall A, b, v, b', v' :: choosable(A, b, v, bal, ios, ps) && P2A(b', v') in ios && b' > b > -1 ==> v' == v
         invariant forall A, A', b, v, b', v' :: chosen(A, b, v, ios, ps) && chosen(A', b', v', ios, ps) && b' > b > -1 ==> v' == v
     {
         bal' := bal; ios' := ios;
@@ -172,12 +172,12 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
                         ios    := ios + { P2A(bal[p], m'.v) };
 
                         /* Begin proof */
-                        forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
-                        ensures m'.v == v;
+                        forall A, b, v | choosable(A, b, v, bal, ios, ps) && bal[p] > b > -1
+                        ensures m'.v == v
                         {
                             quorums_intersect(A, A', N);
                             var m :| m in p1bs[p] && m.s in A * A';
-                            assert P(A, b, v, bal', ios', ps);
+                            assert choosable(A, b, v, bal', ios', ps);
                         }
                         /* End proof */
                     } else {
@@ -185,8 +185,8 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
                         ios     := ios + { P2A(bal[p], v'') };
 
                         /* Begin proof */
-                        forall A, b, v | P(A, b, v, bal, ios, ps) && bal[p] > b > -1
-                        ensures false
+                        forall A, b, v | choosable(A, b, v, bal, ios, ps) && bal[p] > b > -1
+                        ensures !choosable(A, b, v, bal, ios, ps)
                         {
                             quorums_intersect(A, A', N);
                             var m :| m in p1bs[p] && m.s in A * A';
