@@ -115,8 +115,6 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
         invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
 
         invariant forall b, v :: P2A(b, v) in ios && b != -1 ==> v != -1
-        invariant forall p :: p in ps && cbal[p] != -1 ==> av[p] != -1
-        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> v != -1
 
         invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
         invariant forall b, v :: P2A(b, v) in ios ==> b % N in ps
@@ -128,7 +126,6 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m in ios
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m.s in ps
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
-        invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> bal[m.s] >= bal[p]
 
         invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> choosable(A, b, v, bal, ios, ps)
         invariant forall A, b, v :: choosable(A, b, v, bal, ios, ps) ==> choosable(A, b, v, bal', ios', ps)
@@ -141,7 +138,6 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
         var bcast :| bcast in {false, true};
 
         if bcast || ios == {} {
-            var val :| val > 0;
             var b := new_bal(bal[p], p, N);
 
             st   := st  [p := E];
@@ -176,7 +172,6 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
                         ensures m'.v == v
                         {
                             quorums_intersect(A, A', N);
-                            var m :| m in p1bs[p] && m.s in A * A';
                             assert choosable(A, b, v, bal', ios', ps);
                         }
                         /* End proof */
@@ -186,7 +181,7 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
 
                         /* Begin proof */
                         forall A, b, v | choosable(A, b, v, bal, ios, ps) && bal[p] > b > -1
-                        ensures !choosable(A, b, v, bal, ios, ps)
+                        ensures false
                         {
                             quorums_intersect(A, A', N);
                             var m :| m in p1bs[p] && m.s in A * A';
