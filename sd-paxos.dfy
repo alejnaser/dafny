@@ -77,13 +77,13 @@ method new_bal(b: int, p: int, N: int) returns (b': int)
 predicate choosable(A: set<int>, b: int, v: int, bal: map<int, int>, ios: set<Msg>, ps: set<int>)
     requires bal.Keys == ps
 {
-    2 * |A| > |ps| && A <= ps &&
-    (forall p :: p in A ==> P2B(b, v, p) in ios || bal[p] <= b)
+    v > -1 && 2 * |A| > |ps| && A <= ps &&
+    (forall p :: p in A ==> (P2B(b, v, p) in ios || bal[p] <= b))
 }
 
 predicate chosen(A: set<int>, b: int, v: int, ios: set<Msg>, ps: set<int>)
 {
-    2 * |A| > |ps| && A <= ps &&
+    v > -1 && 2 * |A| > |ps| && A <= ps &&
     (forall p :: p in A ==> P2B(b, v, p) in ios)
 }
 
@@ -166,10 +166,7 @@ method sd_paxos(ps: set<int>, N: int)
                 if (2 * |A'| > N) {
                     st := st[p := L];
 
-                    if (exists m :: m in p1bs[p] && m.v != -1) {
-                        var m' := pick_with_max_cbal(p1bs[p]);
-                        ios    := ios + { P2A(bal[p], m'.v) };
-                    } else {
+                    if (forall m :: m in p1bs[p] ==> m.v == -1) {
                         var v'' :| v'' != -1;
                         ios     := ios + { P2A(bal[p], v'') };
 
@@ -180,6 +177,9 @@ method sd_paxos(ps: set<int>, N: int)
                             ghost var m :| m in p1bs[p] && m.s in A * A';
                         }
                         /* End proof */
+                    } else {
+                        var m' := pick_with_max_cbal(p1bs[p]);
+                        ios    := ios + { P2A(bal[p], m'.v) };
                     }
                 }
             }
