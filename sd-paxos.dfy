@@ -23,12 +23,12 @@ lemma in_range(A: set<int>, N: int)
 }
 
 lemma quorums_intersect(ps: set<int>, N: int)
-	requires N > 0 && |ps| == N
+    requires N > 0 && |ps| == N
     requires forall p :: p in ps ==> 0 <= p < N
-	ensures forall A, A' :: A <= ps && A' <= ps && N < 2 * |A| && N < 2 * |A'| ==>  A * A' != {}
+    ensures forall A, A' :: A <= ps && A' <= ps && N < 2 * |A| && N < 2 * |A'| ==>  A * A' != {}
 {
-	forall A, A' | A <= ps && A' <= ps && 2 * |A| > N && 2 * |A'| > N
-		ensures A * A' != {}
+    forall A, A' | A <= ps && A' <= ps && 2 * |A| > N && 2 * |A'| > N
+        ensures A * A' != {}
     {
         if A * A' == {} {
             in_range(A + A', N);
@@ -102,7 +102,7 @@ method sd_paxos(ps: set<int>, N: int)
 
     ghost var ios' := ios;
     ghost var bal' := bal;
-	quorums_intersect(ps, N);
+    quorums_intersect(ps, N);
 
     while true
         decreases *
