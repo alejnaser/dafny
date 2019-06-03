@@ -29,12 +29,12 @@ lemma quorums_intersect(ps: set<int>, N: int)
 {
 	forall A, A' | A <= ps && A' <= ps && 2 * |A| > N && 2 * |A'| > N
 		ensures A * A' != {}
-	{
-		if A * A' == {} {
-			in_range(A + A', N);
+    {
+        if A * A' == {} {
+            in_range(A + A', N);
             assert false;
         }
-	}
+    }
 }
 
 method pick_with_max_cbal(xs: set<Msg>) returns (m: Msg)
