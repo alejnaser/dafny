@@ -22,16 +22,19 @@ lemma in_range(A: set<int>, N: int)
     }
 }
 
-lemma quorums_intersect(A: set<int>, A': set<int>, N: nat)
-    requires forall i :: i in A  ==> 0 <= i < N
-    requires forall i :: i in A' ==> 0 <= i < N
-    requires |A| + |A'| > N
-    ensures A * A' != {}
+lemma quorums_intersect(ps: set<int>, N: int)
+	requires N > 0 && |ps| == N
+    requires forall p :: p in ps ==> 0 <= p < N
+	ensures forall A, A' :: A <= ps && A' <= ps && N < 2 * |A| && N < 2 * |A'| ==>  A * A' != {}
 {
-    if A * A' == {} {
-        in_range(A + A', N);
-        assert false;
-    }
+	forall A, A' | A <= ps && A' <= ps && 2 * |A| > N && 2 * |A'| > N
+		ensures A * A' != {}
+	{
+		if A * A' == {} {
+			in_range(A + A', N);
+            assert false;
+        }
+	}
 }
 
 method pick_with_max_cbal(xs: set<Msg>) returns (m: Msg)
@@ -84,7 +87,7 @@ predicate chosen(A: set<int>, b: int, v: int, ios: set<Msg>, ps: set<int>)
     (forall p :: p in A ==> P2B(b, v, p) in ios)
 }
 
-method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
+method sd_paxos(ps: set<int>, N: int)
     requires N > 0 && |ps| == N
     requires forall p :: p in ps ==> 0 <= p < N
     decreases *
@@ -99,6 +102,7 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
 
     ghost var ios' := ios;
     ghost var bal' := bal;
+	quorums_intersect(ps, N);
 
     while true
         decreases *
@@ -113,7 +117,6 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
         invariant forall p, b, v :: P2B(b, v, p) in ios ==> P2A(b, v) in ios
         invariant forall p :: p in ps ==> cbal[p] != -1 ==> P2A(cbal[p], av[p]) in ios
         invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
-
         invariant forall b, v :: P2A(b, v) in ios && b != -1 ==> v != -1
 
         invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
@@ -166,25 +169,15 @@ method {:timeLimit 0} sd_paxos(ps: set<int>, N: int)
                     if (exists m :: m in p1bs[p] && m.v != -1) {
                         var m' := pick_with_max_cbal(p1bs[p]);
                         ios    := ios + { P2A(bal[p], m'.v) };
-
-                        /* Begin proof */
-                        forall A, b, v | choosable(A, b, v, bal, ios, ps) && bal[p] > b > -1
-                        ensures m'.v == v
-                        {
-                            quorums_intersect(A, A', N);
-                            assert choosable(A, b, v, bal', ios', ps);
-                        }
-                        /* End proof */
                     } else {
                         var v'' :| v'' != -1;
                         ios     := ios + { P2A(bal[p], v'') };
 
                         /* Begin proof */
                         forall A, b, v | choosable(A, b, v, bal, ios, ps) && bal[p] > b > -1
-                        ensures false
+                        ensures !choosable(A, b, v, bal, ios, ps)
                         {
-                            quorums_intersect(A, A', N);
-                            var m :| m in p1bs[p] && m.s in A * A';
+                            ghost var m :| m in p1bs[p] && m.s in A * A';
                         }
                         /* End proof */
                     }
