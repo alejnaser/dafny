@@ -121,13 +121,12 @@ method sd_paxos(ps: set<int>, N: int)
         invariant forall b, v :: P2A(b, v) in ios && st[b % N] == E ==> b < bal[b % N]
         invariant forall b, v, v' :: P2A(b, v) in ios && P2A(b, v') in ios ==> v' == v
 
+        invariant forall b, v :: P2A(b, v) in ios ==> v != -1
         invariant forall p, b, v :: P2B(b, v, p) in ios ==> P2A(b, v) in ios
         invariant forall p :: p in ps ==> cbal[p] != -1 ==> P2A(cbal[p], av[p]) in ios
         invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
-        invariant forall b, v :: P2A(b, v) in ios && b != -1 ==> v != -1
 
-        invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
-        invariant forall p, m :: p in ps && m in p1bs[p] ==> m.s in ps
+        invariant forall p, m :: p in ps && m in p1bs[p] ==> (m.P1B? && m.s in ps)
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
         invariant forall p, m :: p in ps && m in p1bs[p] ==> P1B(m.b, m.c, m.v, m.s) in ios
 
