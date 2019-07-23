@@ -110,8 +110,8 @@ method sd_paxos(ps: set<int>, N: int)
 
         invariant st.Keys == av.Keys == bal.Keys == cbal.Keys == p1bs.Keys == bal'.Keys == ps
 
-				invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
-				invariant forall p, b, c, v :: P1B(b, c, v, p) in ios ==> p in ps
+        invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
+        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios ==> p in ps
         invariant forall p, m :: p in ps && m in p1bs[p] ==> P1B(m.b, m.c, m.v, m.s) in ios
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
 
@@ -131,10 +131,10 @@ method sd_paxos(ps: set<int>, N: int)
         invariant forall p :: p in ps ==> cbal[p] != -1 ==> P2A(cbal[p], av[p]) in ios
         invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
 
-				invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> choosable(A, b, v, bal, ios, ps)
+        invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> choosable(A, b, v, bal, ios, ps)
         invariant forall A, b, v :: choosable(A, b, v, bal, ios, ps) ==> choosable(A, b, v, bal', ios', ps)
 
-				invariant forall A, b, v, b', v' :: choosable(A, b, v, bal, ios, ps) && P2A(b', v') in ios && b' > b > -1 ==> v' == v
+        invariant forall A, b, v, b', v' :: choosable(A, b, v, bal, ios, ps) && P2A(b', v') in ios && b' > b > -1 ==> v' == v
         invariant forall A, A', b, v, b', v' :: chosen(A, b, v, ios, ps) && chosen(A', b', v', ios, ps) && b' > b > -1 ==> v' == v
     {
         bal' := bal; ios' := ios;
@@ -182,8 +182,8 @@ method sd_paxos(ps: set<int>, N: int)
                 if (bal[p] != msg.b) {
                     st := st[p := F];
                 }
-								av   := av  [p := msg.v];
-							  bal  := bal [p := msg.b];
+                av   := av  [p := msg.v];
+                bal  := bal [p := msg.b];
                 cbal := cbal[p := msg.b];
                 ios  := ios + { P2B(bal[p], av[p], p) };
             }
