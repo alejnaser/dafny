@@ -9,6 +9,39 @@ datatype Msg = BROADCAST(m: int) |
                NEW_STATE(b: int, log: map<int, int>) |
                NEW_STATE_ACK(b: int, s: int)
 
+lemma in_range(A: set<int>, N: int)
+    requires forall i :: i in A ==> 0 <= i < N
+    requires N  >= 0
+    ensures |A| <= N
+    decreases N
+{
+    if (N == 0) {
+        forall i | i in A
+            ensures false
+        {}
+        assert A == {};
+    } else if N - 1 in A {
+        in_range(A - {N - 1}, N - 1);
+    } else {
+        in_range(A, N - 1);
+    }
+}
+
+lemma quorums_intersect(ps: set<int>, N: int)
+    requires N > 0 && |ps| == N
+    requires forall p :: p in ps ==> 0 <= p < N
+    ensures forall A, A' :: A <= ps && A' <= ps && N < 2 * |A| && N < 2 * |A'| ==>  A * A' != {}
+{
+    forall A, A' | A <= ps && A' <= ps && 2 * |A| > N && 2 * |A'| > N
+        ensures A * A' != {}
+    {
+        if A * A' == {} {
+            in_range(A + A', N);
+            assert false;
+        }
+    }
+}
+
 method pick_with_max_cbal_and_len(acks: set<Msg>) returns (m: Msg)
     requires acks != {}
     requires forall m :: m in acks ==> m.NEW_LEADER_ACK?
@@ -69,6 +102,8 @@ method zab(ps: set<int>, N: int)
     var new_state_acks: map<int, set<Msg>> := map p | p in ps :: {};
 
     var ios: set<Msg> := {};
+
+    quorums_intersect(ps, N);
 
     while (true)
         decreases *
