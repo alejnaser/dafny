@@ -64,6 +64,13 @@ method pick_with_max_cbal_and_len(acks: set<Msg>) returns (m: Msg)
     }
 }
 
+method leader(bal: int, N: int) returns (l: int)
+    requires N > 0
+    ensures 0 <= l < N
+{
+    l := bal % N;
+}
+
 method new_bal(b: int, p: int, N: int) returns (b': int)
     requires b >= -1 && N > 0
     ensures b' > b && b' % N == p
@@ -113,9 +120,9 @@ method zab(ps: set<int>, N: int)
                   new_leader_acks.Keys == new_state_acks.Keys == ps
 
         invariant forall p :: p in ps ==> bal[p] >= -1
-        invariant forall p, m :: p in ps && m in new_state_acks[p]  ==> m.NEW_STATE_ACK?
+        invariant forall p, m :: p in ps && m in new_state_acks[p] ==> m.NEW_STATE_ACK?
         invariant forall p, m :: p in ps && m in new_leader_acks[p] ==> m.NEW_LEADER_ACK?
-        invariant forall p, m, k :: p in ps && k in accept_acks[p] && m in accept_acks[p][k] ==> m.ACCEPT_ACK?
+        invariant forall p, k, m :: p in ps && k in accept_acks[p] && m in accept_acks[p][k] ==> m.ACCEPT_ACK?
 
     {
         var p :| p in ps;
