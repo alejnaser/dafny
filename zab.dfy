@@ -85,9 +85,16 @@ method new_bal(b: int, p: int, N: int) returns (b': int)
     }
 }
 
-predicate is_prefix(s: seq<Msg>, s': seq<Msg>)
+predicate is_prefix(s: seq<(int, int)>, s': seq<(int, int)>)
 {
-    |s| <= |s'| && forall i :: 0 <= i < |s| ==> s[i] == s'[i]
+    |s| <= |s'| && forall i :: 0 <= i < |s| ==> s[i].1 == s'[i].1
+}
+
+predicate choosable(A: set<int>, b: int, k: int, m: int, ps: set<int>, bal: map<int, int>, ios: set<Msg>)
+    requires bal.Keys == ps
+{
+    2 * |A| >= |ps| && A <= ps &&
+    forall p :: p in A ==> (ACCEPT_ACK(b, k, m, p) in ios || bal[p] <= b)
 }
 
 method zab(ps: set<int>, N: int)
@@ -101,14 +108,17 @@ method zab(ps: set<int>, N: int)
     var cbal: map<int, int> := map p | p in ps :: -1;
     var next: map<int, int> := map p | p in ps :: 0;
 
-    var last_delivered: map<int, int> := map p | p in ps :: -1;
-    var dlog: map<int, seq<Msg>> := map p | p in ps :: [];
+    var last_delivered: map<int, int> := map p | p in ps :: 0;
+    var dlog: map<int, seq<(int, int)>> := map p | p in ps :: [];
 
     var accept_acks: map<int, map<int, set<Msg>>> := map p | p in ps :: map[];
     var new_leader_acks: map<int, set<Msg>> := map p | p in ps :: {};
     var new_state_acks: map<int, set<Msg>> := map p | p in ps :: {};
 
     var ios: set<Msg> := {};
+
+    var bal' := bal;
+    var ios' := ios;
 
     quorums_intersect(ps, N);
 
@@ -117,14 +127,22 @@ method zab(ps: set<int>, N: int)
 
         invariant st.Keys == log.Keys == bal.Keys == cbal.Keys == next.Keys ==
                   last_delivered.Keys == dlog.Keys == accept_acks.Keys ==
-                  new_leader_acks.Keys == new_state_acks.Keys == ps
+                  new_leader_acks.Keys == new_state_acks.Keys == bal'.Keys == ps
 
-        invariant forall p :: p in ps ==> bal[p] >= -1
         invariant forall p, m :: p in ps && m in new_state_acks[p] ==> m.NEW_STATE_ACK?
         invariant forall p, m :: p in ps && m in new_leader_acks[p] ==> m.NEW_LEADER_ACK?
         invariant forall p, k, m :: p in ps && k in accept_acks[p] && m in accept_acks[p][k] ==> m.ACCEPT_ACK?
 
+        invariant forall p :: p in ps ==> bal[p] >= cbal[p] >= -1
+        invariant forall p :: p in ps && st[p] in {L, F, S} ==> bal[p] == cbal[p]
+
+        invariant forall b, k, m, p :: p in ps && ACCEPT_ACK(b, k, m, p) in ios ==> cbal[p] >= b
+        invariant forall b, c, m, p :: p in ps && NEW_LEADER_ACK(b, c, m, p) in ios ==> bal[p] >= b
+        invariant forall b, k, m, b', c', m', p :: p in ps && ACCEPT_ACK(b, k, m, p) in ios && NEW_LEADER_ACK(b', c', m', p) in ios && b' > b ==> c' >= b
+
     {
+        bal' := bal; ios' := ios;
+
         var p :| p in ps;
         var recover :| recover in {false, true};
 
@@ -161,9 +179,10 @@ method zab(ps: set<int>, N: int)
 
                 if (msg.COMMIT? && st[p] in {L, F} && bal[p] >= msg.b && last_delivered[p] < msg.k) {
                     assume msg.k <= |log[p]|;
+                    assume msg.k == last_delivered[p];
                     last_delivered := last_delivered[p := msg.k];
                     log := log[p := log[p][msg.k := msg.m]];
-                    dlog := dlog[p := dlog[p] + [msg]];
+                    dlog := dlog[p := dlog[p] + [(msg.b, msg.m)]];
                 }
 
                 if (msg.NEW_LEADER? && msg.b > bal[p]) {
@@ -204,6 +223,9 @@ method zab(ps: set<int>, N: int)
                 }
             }
         }
+
+        assume forall b, k, m, p :: p in ps && ACCEPT(b, k, m) in ios && cbal[p] == b && |log[p]| >= k ==> (k in log[p] && log[p][k] == m);
+        assume forall b, k, m, m' :: COMMIT(b, k, m) in ios && COMMIT(b, k, m') in ios ==> m' == m;
+        assume forall b, b', k, m, m' :: COMMIT(b, k, m) in ios && COMMIT(b', k, m') in ios && b' > b ==> m' == m;
     }
 }
-
