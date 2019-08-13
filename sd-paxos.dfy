@@ -109,15 +109,18 @@ method sd_paxos(ps: set<int>, N: int)
         decreases *
 
         invariant st.Keys == av.Keys == bal.Keys == cbal.Keys == p1bs.Keys == bal'.Keys == ps
-
         invariant forall p, m :: p in ps && m in p1bs[p] ==> m.P1B?
-        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios ==> p in ps
-        invariant forall p, m :: p in ps && m in p1bs[p] ==> P1B(m.b, m.c, m.v, m.s) in ios
+        invariant forall p, m :: p in ps && m in p1bs[p] ==> m == P1B(m.b, m.c, m.v, m.s)
+
+        invariant forall p, m :: p in ps && m in p1bs[p] ==> m in ios
         invariant forall p, m :: p in ps && st[p] == E && m in p1bs[p] ==> m.b == bal[p]
 
+        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios ==> p in ps
+        invariant forall p, b, v :: P2B(b, v, p) in ios ==> p in ps
+
         invariant forall p :: p in ps ==> bal[p] >= cbal[p] >= -1
-        invariant forall p, b, c, v :: p in ps && P1B(b, c, v, p) in ios ==> b <= bal[p]
-        invariant forall p, b, v :: p in ps && P2B(b, v, p) in ios ==> b <= cbal[p]
+        invariant forall p, b, c, v :: P1B(b, c, v, p) in ios ==> b <= bal[p]
+        invariant forall p, b, v :: P2B(b, v, p) in ios ==> b <= cbal[p]
         invariant forall p, b, v, b', c', v' :: P2B(b, v, p) in ios && P1B(b', c', v', p) in ios && b' > b ==> c' >= b
 
         invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
