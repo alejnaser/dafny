@@ -42,6 +42,30 @@ lemma quorums_intersect(ps: set<int>, N: int)
     }
 }
 
+method max(xs: set<int>) returns (m: int)
+    ensures xs != {} ==> (m in xs && forall x :: x in xs ==> x <= m)
+    ensures xs == {} ==> m == -1
+{
+    if (xs != {}) {
+        m :| m in xs;
+        var q', q := {m}, xs - {m};
+        while (q != {})
+            decreases q
+            invariant q + q' == xs
+            invariant m in q'
+            invariant q' != {} ==> (m in q' && forall x :: x in q' ==> x <= m)
+        {
+            var y :| y in q;
+            q, q' := q - {y}, q' + {y};
+            if (m < y) {
+                m := y;
+            }
+        }
+    } else {
+        return -1;
+    }
+}
+
 method pick_with_max_cbal_and_len(acks: set<Msg>) returns (m: Msg)
     requires acks != {}
     requires forall m :: m in acks ==> m.NEW_LEADER_ACK?
@@ -62,13 +86,6 @@ method pick_with_max_cbal_and_len(acks: set<Msg>) returns (m: Msg)
             m := y;
         }
     }
-}
-
-method leader(bal: int, N: int) returns (l: int)
-    requires N > 0
-    ensures 0 <= l < N
-{
-    l := bal % N;
 }
 
 method new_bal(b: int, p: int, N: int) returns (b': int)
@@ -106,9 +123,9 @@ method zab(ps: set<int>, N: int)
     var log: map<int, map<int, int>> := map p | p in ps :: map[];
     var bal: map<int, int> := map p | p in ps :: -1;
     var cbal: map<int, int> := map p | p in ps :: -1;
-    var next: map<int, int> := map p | p in ps :: 0;
+    var next: map<int, int> := map p | p in ps :: -1;
 
-    var last_delivered: map<int, int> := map p | p in ps :: 0;
+    var last_delivered: map<int, int> := map p | p in ps :: -1;
     var dlog: map<int, seq<(int, int)>> := map p | p in ps :: [];
 
     var accept_acks: map<int, map<int, set<Msg>>> := map p | p in ps :: map[];
@@ -129,9 +146,21 @@ method zab(ps: set<int>, N: int)
                   last_delivered.Keys == dlog.Keys == accept_acks.Keys ==
                   new_leader_acks.Keys == new_state_acks.Keys == bal'.Keys == ps
 
+        invariant forall b, s :: NEW_STATE_ACK(b, s) in ios ==> s in ps
+        invariant forall b, k, m, s :: ACCEPT_ACK(b, k, m, s) in ios ==> s in ps
+        invariant forall b, c, log, s :: NEW_LEADER_ACK(b, c, log, s) in ios ==> s in ps
+
+        invariant forall p, m :: p in ps && m in new_state_acks[p] ==> m in ios
         invariant forall p, m :: p in ps && m in new_state_acks[p] ==> m.NEW_STATE_ACK?
+        invariant forall p, m :: p in ps && m in new_state_acks[p] ==> m == NEW_STATE_ACK(m.b, m.s)
+
+        invariant forall p, m :: p in ps && m in new_leader_acks[p] ==> m in ios
         invariant forall p, m :: p in ps && m in new_leader_acks[p] ==> m.NEW_LEADER_ACK?
+        invariant forall p, m :: p in ps && m in new_leader_acks[p] ==> m == NEW_LEADER_ACK(m.b, m.c, m.log, m.s)
+
+        invariant forall p, k, m :: p in ps && k in accept_acks[p] && m in accept_acks[p][k] ==> m in ios
         invariant forall p, k, m :: p in ps && k in accept_acks[p] && m in accept_acks[p][k] ==> m.ACCEPT_ACK?
+        invariant forall p, k, m :: p in ps && k in accept_acks[p] && m in accept_acks[p][k] ==> m == ACCEPT_ACK(m.b, m.k, m.m, m.s)
 
         invariant forall p :: p in ps ==> bal[p] >= cbal[p] >= -1
         invariant forall p :: p in ps && st[p] in {L, F, S} ==> bal[p] == cbal[p]
@@ -139,6 +168,8 @@ method zab(ps: set<int>, N: int)
         invariant forall b, k, m, p :: p in ps && ACCEPT_ACK(b, k, m, p) in ios ==> cbal[p] >= b
         invariant forall b, c, m, p :: p in ps && NEW_LEADER_ACK(b, c, m, p) in ios ==> bal[p] >= b
         invariant forall b, k, m, b', c', m', p :: p in ps && ACCEPT_ACK(b, k, m, p) in ios && NEW_LEADER_ACK(b', c', m', p) in ios && b' > b ==> c' >= b
+
+        invariant forall A, b, k, m :: choosable(A, b, k, m, ps, bal, ios) ==> choosable(A, b, k, m, ps, bal', ios')
 
     {
         bal' := bal; ios' := ios;
@@ -148,28 +179,27 @@ method zab(ps: set<int>, N: int)
 
         if (recover || ios == {}) {
             var b := new_bal(bal[p], p, N);
-            new_leader_acks := new_leader_acks[p := {}];
             ios := ios + {NEW_LEADER(b)};
         } else {
             var bcast :| bcast in {false, true};
 
             if (st[p] == L && bcast) {
                 var m: int := *;
-                log := log[p := log[p][next[p] := m]];
                 next := next[p := next[p] + 1];
-                accept_acks := accept_acks[p := accept_acks[p][next[p] := {}]];
-                ios := ios + {ACCEPT(bal[p], next[p] - 1, m)};
+                log := log[p := log[p][next[p] := m]];
+                ios := ios + {ACCEPT(bal[p], next[p], m)};
             } else {
                 var msg :| msg in ios;
 
                 if (msg.ACCEPT? && st[p] in {L, F} && msg.b == bal[p]) {
-                    assume msg.k == |log[p]|;
                     log := log[p := log[p][msg.k := msg.m]];
                     ios := ios + {ACCEPT_ACK(msg.b, msg.k, msg.m, p)};
                 }
 
                 if (msg.ACCEPT_ACK? && st[p] == L && msg.b == bal[p]) {
-                    assume msg.k in accept_acks[p];
+                    if (msg.k !in accept_acks[p]) {
+                        accept_acks := accept_acks[p := accept_acks[p][msg.k := {}]];
+                    }
                     accept_acks := accept_acks[p := accept_acks[p][msg.k := accept_acks[p][msg.k] + {msg}]];
                     var A' := set m | m in accept_acks[p][msg.k] :: m.s;
                     if (2 * |A'| > N) {
@@ -178,8 +208,6 @@ method zab(ps: set<int>, N: int)
                 }
 
                 if (msg.COMMIT? && st[p] in {L, F} && bal[p] >= msg.b && last_delivered[p] < msg.k) {
-                    assume msg.k <= |log[p]|;
-                    assume msg.k == last_delivered[p];
                     last_delivered := last_delivered[p := msg.k];
                     log := log[p := log[p][msg.k := msg.m]];
                     dlog := dlog[p := dlog[p] + [(msg.b, msg.m)]];
@@ -196,9 +224,10 @@ method zab(ps: set<int>, N: int)
                     var A' := set m | m in new_leader_acks[p] :: m.s;
                     if (2 * |A'| > N) {
                         var m := pick_with_max_cbal_and_len(new_leader_acks[p]);
+                        var k := max(m.log.Keys);
                         cbal := cbal[p := bal[p]];
                         log := log[p := m.log];
-                        next := next[p := |log[p]|];
+                        next := next[p := k];
                         st := st[p := S];
                         new_state_acks := new_state_acks[p := {}];
                         ios := ios + {NEW_STATE(bal[p], log[p])};
@@ -210,7 +239,7 @@ method zab(ps: set<int>, N: int)
                     cbal := cbal[p := msg.b];
                     log := log[p := msg.log];
                     st := st[p := F];
-                    ios := ios + {NEW_STATE_ACK(bal[p], p)};
+                    ios := ios + {NEW_STATE_ACK(msg.b, p)};
                 }
 
                 if (msg.NEW_STATE_ACK? && st[p] == S && bal[p] == msg.b) {
@@ -224,8 +253,5 @@ method zab(ps: set<int>, N: int)
             }
         }
 
-        assume forall b, k, m, p :: p in ps && ACCEPT(b, k, m) in ios && cbal[p] == b && |log[p]| >= k ==> (k in log[p] && log[p][k] == m);
-        assume forall b, k, m, m' :: COMMIT(b, k, m) in ios && COMMIT(b, k, m') in ios ==> m' == m;
-        assume forall b, b', k, m, m' :: COMMIT(b, k, m) in ios && COMMIT(b', k, m') in ios && b' > b ==> m' == m;
     }
 }
