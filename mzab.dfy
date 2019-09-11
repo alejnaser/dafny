@@ -131,6 +131,18 @@ class MZab
         && (forall b, c, l, s, d :: NEW_LEADER_ACK(b, c, l, s, d) in net ==> NEW_LEADER(b, c, l, d) in net)
 
         && (forall p :: p in ps ==> bal[p] >= cbal[p]) // inv 1
+        && (forall p :: p in ps && st[p] == R ==> bal[p] > cbal[p]) // inv 2
+        && (forall p :: p in ps && st[p] in {L, F} ==> bal[p] == cbal[p]) // inv 3
+        && (forall b, c, l, s, d :: NEW_LEADER_ACK(b, c, l, s, d) in net ==> bal[s] >= b) // inv 4
+        && (forall b, k, m, s, d :: ACCEPT_ACK(b, k, m, s, d) in net ==> cbal[s] >= b) // inv 5
+        && (forall b, msg, s, d :: NEW_STATE_ACK(b, msg, s, d) in net ==> cbal[s] >= b) // inv 6
+        && (forall b, msg, s :: NEW_STATE(b, msg, s) in net ==> cbal[s] >= b) // inv 7
+        && (forall b, k, m, s, b', c', l', s', s'' :: NEW_LEADER_ACK(b', c', l', s, s'') in net
+            && ACCEPT_ACK(b, k, m, s, s') in net && b' > b ==> c' >= b) // inv 8
+        && (forall b, m, b', c', l', s, s', s'' :: NEW_LEADER_ACK(b', c', l', s, s'') in net
+            && NEW_STATE_ACK(b, m, s, s') in net && b' > b ==> c' >= b) // inv 9
+        && (forall b, msg, s, b', c', l', s' :: NEW_LEADER_ACK(b', c', l', s, s') in net
+            && NEW_STATE(b, msg, s) in net && b' > b ==> c' >= b) // inv 10
     }
 
     predicate is_quorum(Q: set<int>)
