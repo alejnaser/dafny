@@ -77,6 +77,7 @@ class MZab
     var next: map<int, int>;
     var ld:   map<int, int>;
     var dmsg: map<int, seq<(int, int)>>;
+    var lmsg: map<int, int>;
 
     lemma quorums_intersect()
         requires Invariant()
@@ -98,7 +99,7 @@ class MZab
         && (N > 0)
         && (N == |ps|)
         && (forall p :: p in ps ==> 0 <= p < N)
-        && (st.Keys == msg.Keys == bal.Keys == cbal.Keys == next.Keys == ld.Keys == dmsg.Keys == ps)
+        && (st.Keys == msg.Keys == bal.Keys == cbal.Keys == next.Keys == ld.Keys == dmsg.Keys == lmsg.Keys == ps)
 
         // all sources and destinations are valid processes
         && (forall b, k, m, s :: ACCEPT(b, k, m, s) in net ==> s in ps)
@@ -111,6 +112,9 @@ class MZab
 
         // if process p is a leader, then it owns its ballot
         && (forall p :: p in ps && st[p] == L ==> bal[p] % N == p)
+
+        // lmsg[p] is the highest filled slot number in msg[p]
+        && (forall p :: p in ps && msg[p] != map[] ==> (lmsg[p] in msg[p] && forall k :: k in msg[p] ==> k <= lmsg[p]))
 
         // only leader(b) can send an ACCEPT, COMMIT or NEW_LEADER
         // message for ballot b
@@ -193,6 +197,7 @@ class MZab
         next := map p | p in ps :: -1;
         ld   := map p | p in ps :: -1;
         dmsg := map p | p in ps :: [];
+        lmsg := map p | p in ps :: -1;
     }
 
     method broadcast(p: int, m: int)
@@ -202,9 +207,11 @@ class MZab
         modifies this
         ensures Invariant()
     {
-        next := next[p := next[p] + 1];
-        msg  := msg[p := msg[p][next[p] := m]];
-        net  := net + {ACCEPT(bal[p], next[p], m, p)};
+        next  := next[p := next[p] + 1];
+        msg   := msg[p := msg[p][next[p] := m]];
+        var l := max(msg[p].Keys);
+        lmsg  := lmsg[p := l];
+        net   := net + {ACCEPT(bal[p], next[p], m, p)};
     }
 
     method accept(p: int, b: int, k: int, m: int, s: int)
@@ -214,8 +221,10 @@ class MZab
         modifies this
         ensures Invariant()
     {
-        msg := msg[p := msg[p][k := m]];
-        net := net + {ACCEPT_ACK(b, k, m, p, s)};
+        msg   := msg[p := msg[p][k := m]];
+        var l := max(msg[p].Keys);
+        lmsg  := lmsg[p := l];
+        net   := net + {ACCEPT_ACK(b, k, m, p, s)};
     }
 
     method quorum_of_accept_ack(p: int, b: int, k: int, m: int, Q: set<int>)
@@ -237,9 +246,11 @@ class MZab
         modifies this
         ensures Invariant()
     {
-        ld   := ld[p := k];
-        msg  := msg[p := msg[p][k := m]];
-        dmsg := dmsg[p := dmsg[p] + [(b, m)]];
+        ld    := ld[p := k];
+        msg   := msg[p := msg[p][k := m]];
+        var l := max(msg[p].Keys);
+        lmsg  := lmsg[p := l];
+        dmsg  := dmsg[p := dmsg[p] + [(b, m)]];
     }
 
     method recover(p: int)
@@ -269,7 +280,7 @@ class MZab
             net := net + {NEW_LEADER_ACK(b, c, l, p, s)};
         } else {
             var b := new_bal(bal[p], p, N);
-            net := net + {NEW_LEADER(b, cbal[p], msg_len, p)};
+            net   := net + {NEW_LEADER(b, cbal[p], msg_len, p)};
         }
     }
 
@@ -295,11 +306,13 @@ class MZab
         modifies this
         ensures Invariant()
     {
-        bal  := bal[p := b];
-        cbal := cbal[p := b];
-        msg  := msg[p := msg'];
-        st   := st[p := F];
-        net  := net + {NEW_STATE_ACK(b, msg', p, s)};
+        bal   := bal[p := b];
+        cbal  := cbal[p := b];
+        msg   := msg[p := msg'];
+        var l := max(msg[p].Keys);
+        lmsg  := lmsg[p := l];
+        st    := st[p := F];
+        net   := net + {NEW_STATE_ACK(b, msg', p, s)};
     }
 
     method quorum_of_new_state_ack(p: int, b: int, m: map<int, int>, Q: set<int>)
