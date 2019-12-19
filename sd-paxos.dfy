@@ -123,7 +123,6 @@ method sd_paxos(ps: set<int>, N: int)
         invariant forall p, b, v :: P2B(b, v, p) in ios ==> b <= cbal[p]
         invariant forall p, b, v, b', c', v' :: P2B(b, v, p) in ios && P1B(b', c', v', p) in ios && b' > b ==> c' >= b
 
-        invariant forall p :: p in ps && st[p] in {E, L} ==> bal[p] % N == p
         invariant forall b, v :: P2A(b, v) in ios ==> b % N in ps
         invariant forall b, v :: P2A(b, v) in ios ==> b <= bal[b % N]
         invariant forall b, v :: P2A(b, v) in ios && st[b % N] == E ==> b < bal[b % N]
@@ -133,6 +132,7 @@ method sd_paxos(ps: set<int>, N: int)
         invariant forall p, b, v :: P2B(b, v, p) in ios ==> P2A(b, v) in ios
         invariant forall p :: p in ps ==> cbal[p] != -1 ==> P2A(cbal[p], av[p]) in ios
         invariant forall p, b, c, v :: P1B(b, c, v, p) in ios && c != -1 ==> P2A(c, v) in ios
+        invariant forall p, b, v :: p in ps && P2A(b, v) in ios && bal[p] == b && b % N == p ==> st[p] == L
 
         invariant forall A, b, v :: chosen(A, b, v, ios, ps) ==> choosable(A, b, v, bal, ios, ps)
         invariant forall A, b, v :: choosable(A, b, v, bal, ios, ps) ==> choosable(A, b, v, bal', ios', ps)
@@ -142,29 +142,23 @@ method sd_paxos(ps: set<int>, N: int)
     {
         bal' := bal; ios' := ios;
 
-        var p     :| p in ps;
-        var bcast :| bcast in {false, true};
+        var p       :| p in ps;
+        var propose :| propose in {false, true};
 
-        if bcast || ios == {} {
+        if propose || ios == {} {
             var b := new_bal(bal[p], p, N);
-
-            st   := st  [p := E];
-            bal  := bal [p := b];
-            p1bs := p1bs[p := {}];
-
-            ios := ios + { P1A(bal[p]) };
+            ios := ios + { P1A(b) };
         } else {
             var msg :| msg in ios;
 
-            if (msg.P1A? && bal[p] <= msg.b) {
-                if (bal[p] < msg.b) {
-                    st := st[p := F];
-                }
+            if (msg.P1A? && bal[p] < msg.b) {
+                st := st[p := E];
+                p1bs := p1bs[p := {}];
                 bal := bal[p := msg.b];
                 ios := ios + { P1B(bal[p], cbal[p], av[p], p) };
             }
 
-            if (msg.P1B? && bal[p] == msg.b && st[p] == E) {
+            if (msg.P1B? && bal[p] == msg.b && st[p] == E && bal[p] % N == p) {
                 p1bs   := p1bs[p := p1bs[p] + {  msg  }];
                 var A' := set m | m in p1bs[p] :: m.s;
 
@@ -182,12 +176,12 @@ method sd_paxos(ps: set<int>, N: int)
             }
 
             if (msg.P2A? && bal[p] <= msg.b) {
-                if (bal[p] != msg.b) {
-                    st := st[p := F];
-                }
                 av   := av  [p := msg.v];
                 bal  := bal [p := msg.b];
                 cbal := cbal[p := msg.b];
+                if (msg.b % N != p) {
+                    st := st[p := F];
+                }
                 ios  := ios + { P2B(bal[p], av[p], p) };
             }
         }
